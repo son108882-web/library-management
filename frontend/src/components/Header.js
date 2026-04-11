@@ -18,7 +18,6 @@ const Header = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      // 🔥 CHỈ SỬA DÒNG NÀY
       navigate(`/search?search=${encodeURIComponent(searchTerm.trim())}`);
     } else {
       navigate('/search');
@@ -27,6 +26,9 @@ const Header = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token'); // 🔥 THÊM (quan trọng)
+    localStorage.removeItem("role");  // 🔥 QUAN TRỌNG NHẤT
+
     window.location.href = '/'; 
   };
 
@@ -59,9 +61,11 @@ const Header = () => {
         <div style={styles.authGroup}>
           {user ? (
             <div style={styles.userSection}>
-              <span style={styles.userLabel}>
-                Xin chào, <strong>{user?.name}</strong>
-              </span>
+              <Link to="/profile" style={{ textDecoration: "none" }}>
+                <span style={styles.userLabel}>
+                  Xin chào, <strong>{user?.name}</strong>
+                </span>
+              </Link>
               <button onClick={handleLogout} style={styles.logoutBtn}>
                 Đăng xuất
               </button>
@@ -90,7 +94,8 @@ const styles = {
   loginLink: { color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: '500' },
   registerBtn: { background: 'white', color: '#1a2a6c', padding: '8px 20px', borderRadius: '50px', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' },
   logoutBtn: { background: '#ff4b2b', color: 'white', border: 'none', padding: '6px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' },
-  userLabel: { color: 'white', fontSize: '14px' }
+  userLabel: { color: 'white', fontSize: '14px' },
+  userSection: { display: 'flex', alignItems: 'center', gap: '10px' } // 🔥 thêm nhẹ cho đẹp
 };
 
 export default Header;

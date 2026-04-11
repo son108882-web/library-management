@@ -13,6 +13,7 @@ import SearchPage from "./pages/SearchPage";
 import BorrowPage from './pages/BorrowPage';
 import BorrowSuccessPage from './pages/BorrowSuccessPage';
 import CategoryManagement from "./pages/CategoryManagement";
+import ProfilePage from "./pages/ProfilePage"; // ✅ THÊM TRANG PROFILE
 // --- DÒNG THÊM MỚI 1: IMPORT TRANG LỊCH SỬ ---
 import AdminHistory from './pages/AdminHistory'; 
 
@@ -37,6 +38,7 @@ function NavigationWrapper() {
         <Route path="/borrow/:bookId" element={<BorrowPage />} />
         <Route path="/borrow-success" element={<BorrowSuccessPage />} />
         <Route path="/admin/categories" element={<CategoryManagement />} />
+        <Route path="/profile" element={<ProfilePage />} /> {/* ✅ THÊM ROUTE CHO PROFILE */}
       </Routes>
       
       {!isAdminPage && <Footer />}

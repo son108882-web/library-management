@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Link API (Đổi thành link ngrok nếu cần)
+// Cấu hình API
 const API_URL = "http://localhost:5000/api/books";
-const CATEGORY_API_URL = "http://localhost:5000/api/categories"; // API lấy danh sách thể loại
+const CATEGORY_API_URL = "http://localhost:5000/api/categories";
 
 const HomePage = () => {
-  const [books, setBooks] = useState([]); 
-  const [categories, setCategories] = useState(['Tất cả']); // Khởi tạo với 'Tất cả'
+  const [books, setBooks] = useState([]);
+  const [categories, setCategories] = useState(['Tất cả']);
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [loading, setLoading] = useState(true);
 
@@ -17,29 +17,24 @@ const HomePage = () => {
   const searchParams = new URLSearchParams(location.search);
   const keyword = searchParams.get('search')?.toLowerCase() || '';
 
-  // 1. GỌI API LẤY DỮ LIỆU SÁCH VÀ DANH MỤC
+  // 1. LẤY DỮ LIỆU TỪ DATABASE
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // Gọi song song cả 2 API để tối ưu tốc độ
         const [booksRes, catRes] = await Promise.all([
           axios.get(API_URL),
           axios.get(CATEGORY_API_URL)
         ]);
 
-        // Xử lý dữ liệu sách
         setBooks(Array.isArray(booksRes.data) ? booksRes.data : []);
-
-        // Xử lý danh mục động từ database
+        
         if (Array.isArray(catRes.data)) {
-          // Lấy tên các thể loại từ mảng object trả về
-          const dynamicCategories = catRes.data.map(c => c.name); 
+          const dynamicCategories = catRes.data.map(c => c.name);
           setCategories(['Tất cả', ...dynamicCategories]);
         }
       } catch (error) {
-        console.error("❌ Lỗi khi lấy dữ liệu:", error);
+        console.error("❌ Lỗi tải dữ liệu:", error);
       } finally {
         setLoading(false);
       }
@@ -47,22 +42,38 @@ const HomePage = () => {
     fetchData();
   }, []);
 
-  // 2. LOGIC LỌC
+  // 2. LOGIC LỌC SÁCH
   const filteredBooks = books.filter(book => {
-    // Lưu ý: book.category ở đây nên khớp với tên category trong DB
     const matchesCategory = selectedCategory === 'Tất cả' || 
-                           (book.category && book.category === selectedCategory);
-    
+                           (book.category && book.category.includes(selectedCategory));
     const matchesSearch = book.title.toLowerCase().includes(keyword) || 
                           book.author.toLowerCase().includes(keyword);
     return matchesCategory && matchesSearch;
   });
 
-  const handleBorrowClick = (bookId) => {
-    navigate(`/borrow/${bookId}`);
+  // 3. XỬ LÝ MƯỢN SÁCH (Đã fix lỗi nhận diện Token)
+  const handleBorrowClick = (book, e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    // Kiểm tra trực tiếp localStorage khi click để lấy data mới nhất
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+    if (!token) {
+      alert("⚠️ Bạn cần đăng nhập để thực hiện chức năng này!");
+      navigate("/login");
+      return;
+    }
+
+    if (book.quantity < 1) {
+      alert("Sách này hiện đã hết trong kho!");
+      return;
+    }
+
+    navigate(`/borrow/${book.id}`);
   };
 
-  if (loading) return <div style={{textAlign: 'center', padding: '100px'}}>Đang tải kho sách...</div>;
+  if (loading) return <div style={{textAlign: 'center', padding: '100px'}}>Đang tải dữ liệu thư viện...</div>;
 
   return (
     <div style={styles.container}>
@@ -70,9 +81,9 @@ const HomePage = () => {
       <div style={styles.banner}>
         <div style={styles.bannerOverlay}>
           <h1 style={styles.bannerTitle}>HỆ THỐNG QUẢN LÝ THƯ VIỆN</h1>
-          <p style={styles.bannerSub}>Khám phá tri thức thực từ Database SQL</p>
+          <p style={styles.bannerSub}>Nguồn tri thức vô tận từ Database SQL</p>
           <div style={styles.bannerStats}>
-            <div style={styles.statItem}><strong>{books.length}+</strong> <br/> Sách trong kho</div>
+            <div style={styles.statItem}><strong>{books.length}+</strong> <br/> Đầu sách</div>
             <div style={styles.statDivider}></div>
             <div style={styles.statItem}><strong>Sẵn sàng</strong> <br/> Phục vụ</div>
           </div>
@@ -80,7 +91,7 @@ const HomePage = () => {
       </div>
 
       <div style={styles.content}>
-        {/* THANH CHỌN THƯ MỤC ĐỘNG */}
+        {/* THANH CHỌN THỂ LOẠI ĐỘNG */}
         <div style={styles.categoryBar}>
           {categories.map(cat => (
             <button 
@@ -98,48 +109,43 @@ const HomePage = () => {
           ))}
         </div>
 
-        {/* TIÊU ĐỀ PHÂN MỤC */}
+        {/* TIÊU ĐỀ KẾT QUẢ */}
         <div style={styles.sectionHeader}>
           <h3 style={styles.sectionTitle}>
-            {keyword ? `🔍 Kết quả tìm kiếm: "${keyword}"` : `📚 Danh mục: ${selectedCategory}`}
+            {keyword ? `🔍 Tìm kiếm: "${keyword}"` : `📚 Danh mục: ${selectedCategory}`}
           </h3>
           <span style={styles.bookCount}>Tìm thấy <strong>{filteredBooks.length}</strong> cuốn</span>
         </div>
         
-        {/* LƯỚI DANH SÁCH SÁCH */}
+        {/* LƯỚI SÁCH */}
         <div style={styles.bookGrid}>
           {filteredBooks.length > 0 ? (
-            filteredBooks.map((book) => (
-              <div key={book.id} style={styles.bookCard}>
-                <div style={{
-                  ...styles.statusBadge,
-                      background:
-                        book.status === 'available' || book.status === 'Sẵn có'
-                          ? '#2ecc71'
-                            : '#e74c3c'
-                              }}>
-                          {
-                               book.status === 'available' || book.status === 'Sẵn có'
-                                      ? 'Sẵn có'
-                                      : book.status === 'borrowed'
-                                          ? 'Đang mượn'
-                                        : 'Hết sách'
-                                          }
-                            </div>
+            filteredBooks.map((book) => {
+              const isOutOfStock = book.quantity < 1;
 
-                <div style={styles.bookCoverWrapper}>
-                  <img 
-                    src={book.image_url ? `http://localhost:5000${book.image_url}` : "https://via.placeholder.com/150x200?text=No+Image"} 
-                    alt={book.title} 
-                    style={styles.bookCoverImg} 
-                  />
-                </div>
-                
-                <div style={styles.bookDetailArea}>
-                  <h4 style={styles.bookName}>{book.title}</h4>
-                  <p style={styles.bookAuthor}>Tác giả: {book.author}</p>
+              return (
+                <div key={book.id} style={styles.bookCard}>
+                  {/* Trạng thái */}
+                  <div style={{
+                    ...styles.statusBadge,
+                    background: !isOutOfStock ? '#2ecc71' : '#e74c3c'
+                  }}>
+                    {!isOutOfStock ? 'Sẵn có' : 'Hết sách'}
+                  </div>
+
+                  <div style={styles.bookCoverWrapper}>
+                    <img 
+                      src={book.image_url ? `http://localhost:5000${book.image_url}` : "https://via.placeholder.com/150x200?text=No+Image"} 
+                      alt={book.title} 
+                      style={styles.bookCoverImg} 
+                    />
+                  </div>
                   
-                  <div style={styles.actionGroup}>
+                  <div style={styles.bookDetailArea}>
+                    <h4 style={styles.bookName}>{book.title}</h4>
+                    <p style={styles.bookAuthor}>TG: {book.author}</p>
+                    
+                    <div style={styles.actionGroup}>
                       <Link 
                         to={`/books/${book.id}`} 
                         state={{ book }}
@@ -147,19 +153,26 @@ const HomePage = () => {
                       >
                         <button style={styles.detailsBtn}>Chi tiết</button>
                       </Link>
-                    <button 
-                      style={styles.borrowBtn}
-                      onClick={() => handleBorrowClick(book.id)}
-                    >
-                      Mượn ngay
-                    </button>
+
+                      <button 
+                        style={{
+                          ...styles.borrowBtn,
+                          opacity: isOutOfStock ? 0.5 : 1,
+                          cursor: isOutOfStock ? "not-allowed" : "pointer"
+                        }}
+                        disabled={isOutOfStock}
+                        onClick={(e) => handleBorrowClick(book, e)}
+                      >
+                        Mượn ngay
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div style={styles.noResult}>
-              <p>Không có sách nào trong mục này hoặc kho sách đang trống.</p>
+              <p>Không tìm thấy sách phù hợp trong kho.</p>
             </div>
           )}
         </div>
@@ -168,12 +181,12 @@ const HomePage = () => {
   );
 };
 
-// Styles giữ nguyên của ông
+// --- STYLES GIỮ NGUYÊN GIAO DIỆN CỦA BẠN ---
 const styles = {
   container: { fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f0f2f5', minHeight: '100vh' },
   banner: { height: '300px', backgroundImage: 'url("https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1600&auto=format&fit=crop")', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   bannerOverlay: { textAlign: 'center', color: 'white', background: 'rgba(0, 0, 0, 0.6)', padding: '30px', borderRadius: '15px', width: '80%' },
-  bannerTitle: { fontSize: '2.5rem', margin: '0 0 10px 0' },
+  bannerTitle: { fontSize: '2.5rem', margin: '0 0 10px 0', fontWeight: 'bold' },
   bannerSub: { fontSize: '1.1rem', marginBottom: '20px' },
   bannerStats: { display: 'flex', justifyContent: 'center', gap: '30px' },
   statItem: { fontSize: '0.9rem' },

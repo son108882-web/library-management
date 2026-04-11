@@ -18,9 +18,8 @@ const db = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
-}).promise(); // Bắt buộc để Controller dùng await
+}).promise();
 
-// Kiểm tra trạng thái kết nối (Sửa lại cho chuẩn Promise)
 db.getConnection()
     .then(connection => {
         console.log("✅ Đã kết nối MySQL thông qua Pool!");
@@ -30,24 +29,21 @@ db.getConnection()
         console.error("❌ Không thể kết nối MySQL. Hãy kiểm tra XAMPP:", err.message);
     });
 
-// --- 2. CẤU HÌNH MULTER (XỬ LÝ UPLOAD ẢNH) ---
+// --- 2. CẤU HÌNH MULTER ---
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
-    console.log("📁 Đã tạo thư mục lưu trữ ảnh tại:", uploadDir);
 }
 
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir); 
-    },
+    destination: (req, file, cb) => { cb(null, uploadDir); },
     filename: (req, file, cb) => {
         cb(null, Date.now() + path.extname(file.originalname));
     }
 });
 const upload = multer({ storage: storage });
 
-// --- 3. CẤU HÌNH MIDDLEWARE & CORS ---
+// --- 3. MIDDLEWARE & CORS ---
 app.use(cors({
     origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -65,7 +61,7 @@ app.use((req, res, next) => {
 
 // --- 4. CÁC API CHÍNH ---
 
-// API thêm sách (Sử dụng async/await cho đồng bộ với .promise())
+// API thêm sách
 app.post('/api/books', upload.single('image'), async (req, res) => {
     const { title, author, category, quantity, status, description } = req.body;
     const image_url = req.file ? `/uploads/${req.file.filename}` : null;
@@ -106,7 +102,7 @@ app.get('/api/borrows', async (req, res) => {
     }
 });
 
-// 2. API Thực hiện mượn sách mới
+// 2. API Thực hiện mượn sách mới (Cập nhật: Giảm số lượng quantity)
 app.post('/api/borrows', async (req, res) => {
     const { user_id, book_id, return_date } = req.body;
     if (!user_id || !book_id) {
@@ -114,25 +110,40 @@ app.post('/api/borrows', async (req, res) => {
     }
     
     try {
-        const [rows] = await db.query("SELECT status FROM books WHERE id = ?", [book_id]);
+        // Kiểm tra xem sách còn trong kho không
+        const [rows] = await db.query("SELECT quantity, title FROM books WHERE id = ?", [book_id]);
         if (rows.length === 0) return res.status(404).json({ error: "Sách không tồn tại" });
-        if (rows[0].status === 'borrowed' || rows[0].status === 'out_of_stock') {
-            return res.status(400).json({ error: "Sách hiện đã có người mượn!" });
+        
+        const currentQty = rows[0].quantity;
+        if (currentQty <= 0) {
+            return res.status(400).json({ error: "Sách này hiện đã hết trong kho!" });
         }
 
         const finalReturnDate = return_date || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const [result] = await db.query("INSERT INTO borrows (user_id, book_id, borrow_date, return_date, status) VALUES (?, ?, CURDATE(), ?, 'borrowed')", [user_id, book_id, finalReturnDate]);
         
-        await db.query("UPDATE books SET status = 'borrowed' WHERE id = ?", [book_id]);
+        // Bắt đầu thực hiện mượn
+        const [result] = await db.query(
+            "INSERT INTO borrows (user_id, book_id, borrow_date, return_date, status) VALUES (?, ?, CURDATE(), ?, 'borrowed')", 
+            [user_id, book_id, finalReturnDate]
+        );
         
-        console.log(`✅ User ${user_id} đã mượn sách ${book_id}`);
-        res.json({ message: "Mượn sách thành công!", id: result.insertId });
+        // LOGIC CHÍNH: Giảm số lượng và tự động cập nhật status nếu hết sách
+        await db.query(`
+            UPDATE books 
+            SET quantity = quantity - 1,
+                status = CASE WHEN (quantity - 1) <= 0 THEN 'out_of_stock' ELSE 'available' END
+            WHERE id = ?
+        `, [book_id]);
+        
+        console.log(`✅ User ${user_id} mượn "${rows[0].title}". Kho còn: ${currentQty - 1}`);
+        res.json({ success: true, message: "Mượn sách thành công!", id: result.insertId });
     } catch (err) {
+        console.error("❌ Lỗi mượn sách:", err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 3. API Thực hiện trả sách
+// 3. API Thực hiện trả sách (Cập nhật: Tăng lại số lượng quantity)
 app.put('/api/borrows/return/:id', async (req, res) => {
     const borrowId = req.params.id;
     try {
@@ -140,15 +151,25 @@ app.put('/api/borrows/return/:id', async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: "Không tìm thấy phiếu mượn" });
         
         const bookId = rows[0].book_id;
+        
+        // Cập nhật trạng thái phiếu mượn
         await db.query("UPDATE borrows SET status = 'returned', return_date = CURDATE() WHERE id = ?", [borrowId]);
-        await db.query("UPDATE books SET status = 'available' WHERE id = ?", [bookId]);
-        res.json({ message: "Trả sách thành công!" });
+        
+        // LOGIC CHÍNH: Tăng lại số lượng vào kho và set trạng thái thành available
+        await db.query(`
+            UPDATE books 
+            SET quantity = quantity + 1, 
+                status = 'available' 
+            WHERE id = ?
+        `, [bookId]);
+
+        res.json({ success: true, message: "Trả sách thành công, kho đã được cập nhật!" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- 5. ĐĂNG KÝ CÁC ROUTE TÁCH BIỆT (KHAI BÁO DUY NHẤT 1 LẦN) ---
+// --- 5. ROUTE TÁCH BIỆT ---
 const categoryRoutes = require("./backend/routes/categoryRoutes");
 const userRoutes = require("./backend/routes/userRoutes");
 const bookRoutes = require("./backend/routes/bookRoutes");
@@ -162,12 +183,7 @@ app.use("/api/books", bookRoutes);
 // --- 6. KHỞI CHẠY SERVER ---
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`-----------------------------------------`);
     console.log(`🚀 Server backend chuẩn N5 BOOK port ${PORT}!`);
-    console.log(`📂 Static Uploads: http://localhost:${PORT}/uploads`);
-    console.log(`📂 API Statistics: http://localhost:${PORT}/api/statistics`);
-    console.log(`-----------------------------------------`);
 });
 
-// Export để Controllers dùng
 module.exports = { db };
