@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Book, Users, BookOpen, AlertTriangle, 
   LayoutDashboard, Library, History, Settings, Bell, FileSpreadsheet,
-  Layers // Icon cho Thể loại
+  Layers 
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -32,6 +32,25 @@ const Statistics = () => {
   });
   const [loading, setLoading] = useState(true);
 
+  // --- LOGIC TÍNH TOÁN QUÁ HẠN THỜI GIAN THỰC ---
+  const calculateRealtimeOverdue = () => {
+    if (!stats.recentActivities) return stats.overdueBooks;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Lọc các hoạt động chưa trả và đã quá hạn
+    const realOverdueCount = stats.recentActivities.filter(item => {
+      if (item.status === 'returned' || !item.returnDate) return false;
+      const dueDate = new Date(item.returnDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return today > dueDate;
+    }).length;
+
+    // Trả về số lớn nhất giữa số từ API và số tính toán được để đảm bảo không sót
+    return Math.max(stats.overdueBooks, realOverdueCount);
+  };
+
   // --- HÀM XỬ LÝ XUẤT EXCEL ---
   const handleExportExcel = async () => {
     if (!stats.recentActivities || stats.recentActivities.length === 0) {
@@ -46,6 +65,7 @@ const Statistics = () => {
       { header: 'NGƯỜI MƯỢN', key: 'name', width: 25 },
       { header: 'TÊN SÁCH', key: 'book', width: 35 },
       { header: 'NGÀY MƯỢN', key: 'date', width: 20 },
+      { header: 'TRẠNG THÁI', key: 'status', width: 15 },
     ];
 
     const headerRow = worksheet.getRow(1);
@@ -62,7 +82,8 @@ const Statistics = () => {
       worksheet.addRow({
         name: item.memberName,
         book: item.bookTitle,
-        date: new Date(item.borrowDate).toLocaleDateString('vi-VN')
+        date: new Date(item.borrowDate).toLocaleDateString('vi-VN'),
+        status: item.status === 'returned' ? 'Đã trả' : 'Đang mượn'
       });
     });
 
@@ -74,7 +95,7 @@ const Statistics = () => {
           bottom: { style: 'thin' }, right: { style: 'thin' }
         };
         cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-        if (cell.column === 3) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        if (cell.column === 3 || cell.column === 4) cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
     });
 
@@ -128,7 +149,6 @@ const Statistics = () => {
             />
           </Link>
 
-          {/* MỤC MỚI THÊM: QUẢN LÝ THỂ LOẠI */}
           <Link to="/admin/categories" className="block">
             <NavItem 
               icon={<Layers size={20}/>} 
@@ -196,7 +216,16 @@ const Statistics = () => {
           <StatCard title="Tổng số sách" value={stats.totalBooks} icon={<Book size={22}/>} color="blue" loading={loading} onClick={() => navigate('/admin/books')} />
           <StatCard title="Đang mượn" value={stats.borrowedBooks} icon={<BookOpen size={22}/>} color="green" loading={loading} onClick={() => navigate('/admin/history')} />
           <StatCard title="Thành viên" value={stats.newMembers} icon={<Users size={22}/>} color="purple" loading={loading} onClick={() => navigate('/admin/users')} />
-          <StatCard title="Quá hạn" value={stats.overdueBooks} icon={<AlertTriangle size={22}/>} color="red" loading={loading} />
+          
+          {/* CẬP NHẬT THẺ QUÁ HẠN: Click để chuyển đến trang History và xem sách quá hạn */}
+          <StatCard 
+            title="Quá hạn" 
+            value={calculateRealtimeOverdue()} 
+            icon={<AlertTriangle size={22}/>} 
+            color="red" 
+            loading={loading} 
+            onClick={() => navigate('/admin/history')} 
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -240,27 +269,47 @@ const Statistics = () => {
           <div className="lg:col-span-3 bg-white p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white mt-2">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-xl font-bold text-[#1E293B]">Hoạt động gần đây</h3>
-              <button className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-xl transition-all">Xem tất cả</button>
+              <button onClick={() => navigate('/admin/history')} className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-xl transition-all">Xem tất cả</button>
             </div>
             <table className="w-full text-left">
               <thead>
                 <tr className="text-slate-400 text-[11px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
                   <th className="pb-6">Người mượn</th>
                   <th className="pb-6 text-center">Tên sách</th>
+                  <th className="pb-6 text-center">Trạng thái</th>
                   <th className="pb-6 text-right">Ngày mượn</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {(!stats.recentActivities || stats.recentActivities.length === 0) ? (
-                    <tr><td colSpan="3" className="py-12 text-center text-slate-400 font-medium italic">Chưa có hoạt động mượn trả nào gần đây...</td></tr>
+                    <tr><td colSpan="4" className="py-12 text-center text-slate-400 font-medium italic">Chưa có hoạt động mượn trả nào gần đây...</td></tr>
                 ) : (
-                    stats.recentActivities.map((item, index) => (
+                    stats.recentActivities.map((item, index) => {
+                      // Logic kiểm tra quá hạn cục bộ cho từng hàng
+                      const isReturned = item.status === 'returned';
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const dueDate = item.returnDate ? new Date(item.returnDate) : null;
+                      if (dueDate) dueDate.setHours(0, 0, 0, 0);
+                      const isOverdue = !isReturned && dueDate && today > dueDate;
+
+                      return (
                         <tr key={index} className="group hover:bg-blue-50/50 transition-all">
                             <td className="py-5 font-bold text-slate-700">{item.memberName}</td>
                             <td className="py-5 text-slate-600 text-center">{item.bookTitle}</td>
+                            <td className="py-5 text-center">
+                              {isReturned ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md uppercase">Đã trả</span>
+                              ) : isOverdue ? (
+                                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md uppercase animate-pulse">Quá hạn</span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md uppercase">Đang mượn</span>
+                              )}
+                            </td>
                             <td className="py-5 text-slate-400 text-sm font-medium text-right">{new Date(item.borrowDate).toLocaleDateString('vi-VN')}</td>
                         </tr>
-                    ))
+                      );
+                    })
                 )}
               </tbody>
             </table>
@@ -271,7 +320,7 @@ const Statistics = () => {
   );
 };
 
-// --- CÁC COMPONENT PHỤ ---
+// --- CÁC COMPONENT PHỤ (Giữ nguyên logic CSS cũ) ---
 const NavItem = ({ icon, label, active = false }) => (
   <div className={`flex items-center gap-4 px-5 py-4 rounded-2xl cursor-pointer transition-all duration-300 ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-bold scale-105' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
     {icon} <span className="text-sm">{label}</span>

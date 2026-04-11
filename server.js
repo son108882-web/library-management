@@ -78,9 +78,11 @@ app.post('/api/books', upload.single('image'), async (req, res) => {
 
 // --- 4.5 API QUẢN LÝ MƯỢN TRẢ (BORROWS) ---
 
-// 1. Lấy toàn bộ danh sách mượn trả
+// 1. Lấy danh sách mượn trả (ĐÃ SỬA ĐỂ LỌC THEO USER)
 app.get('/api/borrows', async (req, res) => {
-    const q = `
+    const { user_id } = req.query; // Nhận user_id từ frontend truyền lên
+
+    let q = `
         SELECT 
             br.id,
             u.full_name as memberName,
@@ -92,17 +94,26 @@ app.get('/api/borrows', async (req, res) => {
         FROM borrows br
         JOIN users u ON br.user_id = u.id
         JOIN books b ON br.book_id = b.id
-        ORDER BY br.borrow_date DESC
     `;
+
+    // Nếu có user_id truyền lên thì lọc theo user đó, nếu không có thì lấy tất cả (cho Admin)
+    const params = [];
+    if (user_id) {
+        q += " WHERE br.user_id = ?";
+        params.push(user_id);
+    }
+
+    q += " ORDER BY br.borrow_date DESC";
+
     try {
-        const [results] = await db.query(q);
+        const [results] = await db.query(q, params);
         res.json(results);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. API Thực hiện mượn sách mới (Cập nhật: Giảm số lượng quantity)
+// 2. API Thực hiện mượn sách mới (GIỮ NGUYÊN LOGIC GIẢM QUANTITY)
 app.post('/api/borrows', async (req, res) => {
     const { user_id, book_id, return_date } = req.body;
     if (!user_id || !book_id) {
@@ -110,7 +121,6 @@ app.post('/api/borrows', async (req, res) => {
     }
     
     try {
-        // Kiểm tra xem sách còn trong kho không
         const [rows] = await db.query("SELECT quantity, title FROM books WHERE id = ?", [book_id]);
         if (rows.length === 0) return res.status(404).json({ error: "Sách không tồn tại" });
         
@@ -121,13 +131,12 @@ app.post('/api/borrows', async (req, res) => {
 
         const finalReturnDate = return_date || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
-        // Bắt đầu thực hiện mượn
         const [result] = await db.query(
             "INSERT INTO borrows (user_id, book_id, borrow_date, return_date, status) VALUES (?, ?, CURDATE(), ?, 'borrowed')", 
             [user_id, book_id, finalReturnDate]
         );
         
-        // LOGIC CHÍNH: Giảm số lượng và tự động cập nhật status nếu hết sách
+        // LOGIC GIẢM QUANTITY (GIỮ NGUYÊN)
         await db.query(`
             UPDATE books 
             SET quantity = quantity - 1,
@@ -143,7 +152,7 @@ app.post('/api/borrows', async (req, res) => {
     }
 });
 
-// 3. API Thực hiện trả sách (Cập nhật: Tăng lại số lượng quantity)
+// 3. API Thực hiện trả sách (GIỮ NGUYÊN LOGIC TĂNG QUANTITY)
 app.put('/api/borrows/return/:id', async (req, res) => {
     const borrowId = req.params.id;
     try {
@@ -152,10 +161,9 @@ app.put('/api/borrows/return/:id', async (req, res) => {
         
         const bookId = rows[0].book_id;
         
-        // Cập nhật trạng thái phiếu mượn
         await db.query("UPDATE borrows SET status = 'returned', return_date = CURDATE() WHERE id = ?", [borrowId]);
         
-        // LOGIC CHÍNH: Tăng lại số lượng vào kho và set trạng thái thành available
+        // LOGIC TĂNG QUANTITY (GIỮ NGUYÊN)
         await db.query(`
             UPDATE books 
             SET quantity = quantity + 1, 

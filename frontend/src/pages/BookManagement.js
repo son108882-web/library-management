@@ -1,20 +1,32 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  Image as ImageIcon, 
+  Type, 
+  User, 
+  Tag, 
+  Hash, 
+  Activity 
+} from 'lucide-react'; // Thêm icon cho xịn
+import { useNavigate } from 'react-router-dom';
 
-// Đổi thành link ngrok nếu ông đang chạy qua ngrok nhé
 const API_URL = "http://localhost:5000/api/books";
 
 const BookManagement = () => {
+    const navigate = useNavigate();
     const [books, setBooks] = useState([]);
     const [topBooks, setTopBooks] = useState([]);
     const [slowBooks, setSlowBooks] = useState([]);
     
-    // --- CẬP NHẬT 1: Thêm description vào form state ---
     const [form, setForm] = useState({ 
         title: '', author: '', category: '', quantity: 1, status: 'available', description: '' 
     });
-    const [file, setFile] = useState(null); // State mới để lưu file ảnh
+    const [file, setFile] = useState(null);
     
     const [editingId, setEditingId] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -39,23 +51,19 @@ const BookManagement = () => {
 
     useEffect(() => { loadAllData(); }, []);
 
-    // --- CẬP NHẬT 2: Chuyển sang dùng FormData để gửi ảnh ---
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
         const formData = new FormData();
         formData.append('title', form.title);
         formData.append('author', form.author);
         formData.append('category', form.category);
         formData.append('quantity', form.quantity);
         formData.append('status', form.status);
-        formData.append('description', form.description); // Gửi mô tả
-        if (file) formData.append('image', file); // Gửi file ảnh nếu có
+        formData.append('description', form.description);
+        if (file) formData.append('image', file);
 
         try {
             if (editingId) {
-                // Lưu ý: PUT với file ảnh đôi khi phức tạp, 
-                // tạm thời ta dùng post cho thêm mới để test ảnh trước
                 await axios.put(`${API_URL}/${editingId}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
@@ -66,8 +74,6 @@ const BookManagement = () => {
                 });
                 alert("Thêm sách mới thành công!");
             }
-            
-            // Reset toàn bộ
             setForm({ title: '', author: '', category: '', quantity: 1, status: 'available', description: '' });
             setFile(null);
             setEditingId(null);
@@ -91,100 +97,199 @@ const BookManagement = () => {
             category: book.category || '',
             quantity: book.quantity,
             status: book.status,
-            description: book.description || '' // Đổ mô tả vào form khi sửa
+            description: book.description || ''
         });
         setEditingId(book.id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    if (loading) return <div className="p-10 text-center text-gray-500">Đang tải dữ liệu...</div>;
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-[#F1F5F9]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+    );
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <h1 className="text-3xl font-extrabold mb-8 text-gray-800 border-b pb-4">📚 Quản Lý Kho Sách</h1>
-
-            {/* --- PHẦN 2: FORM NHẬP LIỆU (ĐÃ THÊM Ô MÔ TẢ & CHỌN ẢNH) --- */}
-            <div className="bg-white p-6 rounded-xl shadow-md mb-10 border border-gray-100">
-                <h2 className="text-xl font-bold mb-4 text-gray-700">{editingId ? "📝 Chỉnh sửa thông tin" : "➕ Thêm sách mới"}</h2>
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input className="border p-2 rounded" placeholder="Tên sách" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
-                    <input className="border p-2 rounded" placeholder="Tác giả" value={form.author} onChange={e => setForm({...form, author: e.target.value})} required />
-                    <input className="border p-2 rounded" placeholder="Thể loại" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                    <input className="border p-2 rounded" type="number" placeholder="Số lượng" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} />
-                    
-                    <select className="border p-2 rounded bg-white" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                        <option value="available">Còn sách</option>
-                        <option value="borrowed">Đang mượn</option>
-                        <option value="damaged">Hỏng/Sự cố</option>
-                    </select>
-
-                    {/* --- Ô CHỌN ẢNH --- */}
-                    <div className="flex flex-col">
-                        <label className="text-xs text-gray-500 mb-1">Ảnh bìa sách:</label>
-                        <input type="file" accept="image/*" onChange={e => setFile(e.target.files[0])} className="text-sm" />
+        <div className="p-8 bg-[#F1F5F9] min-h-screen font-sans text-slate-900">
+            {/* --- HEADER --- */}
+            <div className="max-w-7xl mx-auto flex justify-between items-center mb-10">
+                <div className="flex items-center gap-6">
+                    <button 
+                        onClick={() => navigate('/admin/dashboard')}
+                        className="p-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl shadow-sm border border-slate-200 transition-all active:scale-95"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Quản lý Kho Sách</h1>
+                        <p className="text-slate-500 font-medium text-sm">Cập nhật và điều chỉnh danh mục sách trong thư viện.</p>
                     </div>
-
-                    {/* --- Ô NHẬP MÔ TẢ (Full width) --- */}
-                    <textarea 
-                        className="border p-2 rounded md:col-span-2 h-24" 
-                        placeholder="Mô tả nội dung sách..." 
-                        value={form.description} 
-                        onChange={e => setForm({...form, description: e.target.value})}
-                    />
-
-                    <div className="md:col-span-2 flex justify-end gap-2">
-                        {editingId && (
-                            <button type="button" onClick={() => {setEditingId(null); setForm({title:'',author:'',category:'',quantity:1,status:'available',description:''})}} className="px-4 py-2 bg-gray-400 text-white rounded">Hủy</button>
-                        )}
-                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700">
-                            {editingId ? "Lưu thay đổi" : "Xác nhận thêm"}
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
 
-            {/* --- PHẦN 3: BẢNG DANH SÁCH (THÊM CỘT ẢNH NHỎ ĐỂ XEM) --- */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-100 text-gray-600 uppercase text-xs">
-                                <th className="p-4 border-b">Ảnh</th>
-                                <th className="p-4 border-b">Thông tin sách</th>
-                                <th className="p-4 border-b">Thể loại</th>
-                                <th className="p-4 border-b">Trạng thái</th>
-                                <th className="p-4 border-b text-right">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-gray-600 text-sm">
-                            {books.length > 0 ? books.map(book => (
-                                <tr key={book.id} className="hover:bg-blue-50 border-b">
-                                    <td className="p-4">
-                                        {book.image_url ? (
-                                            <img src={`http://localhost:5000${book.image_url}`} alt="cover" className="w-12 h-16 object-cover rounded shadow-sm" />
-                                        ) : (
-                                            <div className="w-12 h-16 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400">No Img</div>
-                                        )}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="font-bold text-gray-800">{book.title}</div>
-                                        <div className="text-xs text-gray-400 italic truncate w-40">{book.description || 'Không có mô tả'}</div>
-                                    </td>
-                                    <td className="p-4">{book.category}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${book.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {book.status === 'available' ? 'Sẵn sàng' : 'Đang mượn'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-right space-x-2">
-                                        <button onClick={() => handleEdit(book)} className="text-blue-600">Sửa</button>
-                                        <button onClick={() => handleDelete(book.id)} className="text-red-500">Xóa</button>
-                                    </td>
-                                </tr>
-                            )) : <tr><td colSpan="5" className="p-10 text-center">Trống</td></tr>}
-                        </tbody>
-                    </table>
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* --- PHẦN FORM NHẬP LIỆU --- */}
+                <div className="lg:col-span-1">
+                    <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white sticky top-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className={`p-2 rounded-xl ${editingId ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {editingId ? <Edit3 size={20} /> : <Plus size={20} />}
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {editingId ? "Sửa thông tin" : "Thêm sách mới"}
+                            </h2>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Tên sách</label>
+                                <div className="relative">
+                                    <Type className="absolute left-3 top-3 text-slate-400" size={18} />
+                                    <input className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Tác giả</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-3 text-slate-400" size={18} />
+                                    <input className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={form.author} onChange={e => setForm({...form, author: e.target.value})} required />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Thể loại</label>
+                                    <div className="relative">
+                                        <Tag className="absolute left-3 top-3 text-slate-400" size={18} />
+                                        <input className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Số lượng</label>
+                                    <div className="relative">
+                                        <Hash className="absolute left-3 top-3 text-slate-400" size={18} />
+                                        <input type="number" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Trạng thái</label>
+                                <div className="relative">
+                                    <Activity className="absolute left-3 top-3 text-slate-400" size={18} />
+                                    <select className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-all" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                                        <option value="available">Sẵn sàng</option>
+                                        <option value="borrowed">Đang mượn</option>
+                                        <option value="damaged">Sự cố/Hỏng</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Ảnh bìa</label>
+                                <div className="flex items-center justify-center w-full">
+                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
+                                        <div className="flex flex-col items-center justify-center pt-2">
+                                            <ImageIcon className="text-slate-400 mb-1" size={20} />
+                                            <p className="text-[10px] text-slate-500 font-bold">{file ? file.name : "Nhấn để tải ảnh"}</p>
+                                        </div>
+                                        <input type="file" className="hidden" accept="image/*" onChange={e => setFile(e.target.files[0])} />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 tracking-wider">Mô tả</label>
+                                <textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] text-sm" placeholder="Nhập nội dung tóm tắt..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                {editingId && (
+                                    <button type="button" onClick={() => {setEditingId(null); setForm({title:'',author:'',category:'',quantity:1,status:'available',description:''})}} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">Hủy</button>
+                                )}
+                                <button type="submit" className={`flex-[2] py-3 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${editingId ? 'bg-amber-500 shadow-amber-200 hover:bg-amber-600' : 'bg-blue-600 shadow-blue-200 hover:bg-blue-700'}`}>
+                                    {editingId ? "Lưu thay đổi" : "Xác nhận thêm"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
+
+                {/* --- BẢNG DANH SÁCH SÁCH --- */}
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white overflow-hidden">
+                        <div className="p-8 border-b border-slate-50">
+                            <h3 className="text-xl font-bold text-slate-800">Danh mục trong kho</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[11px] font-black uppercase tracking-widest">
+                                        <th className="p-6">Sách</th>
+                                        <th className="p-6">Phân loại</th>
+                                        <th className="p-6">Trạng thái</th>
+                                        <th className="p-6 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {books.length > 0 ? books.map(book => (
+                                        <tr key={book.id} className="hover:bg-blue-50/30 transition-all group">
+                                            <td className="p-6">
+                                                <div className="flex gap-4">
+                                                    <div className="w-14 h-20 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden shadow-sm border border-slate-100 relative group-hover:scale-105 transition-transform duration-300">
+                                                        {book.image_url ? (
+                                                            <img src={`http://localhost:5000${book.image_url}`} alt="cover" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300 italic text-[10px]">No Pic</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col justify-center max-w-[200px]">
+                                                        <span className="font-bold text-slate-700 block truncate">{book.title}</span>
+                                                        <span className="text-xs text-slate-400 font-medium">TG: {book.author}</span>
+                                                        <span className="text-[10px] text-slate-300 italic truncate mt-1">{book.description || 'Chưa có mô tả'}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-6">
+                                                <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold uppercase tracking-wider">{book.category || 'N/A'}</span>
+                                            </td>
+                                            <td className="p-6">
+                                                {book.status === 'available' ? (
+                                                    <span className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs uppercase">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Sẵn sàng
+                                                    </span>
+                                                ) : book.status === 'borrowed' ? (
+                                                    <span className="text-amber-500 font-bold text-xs uppercase">Đang mượn</span>
+                                                ) : (
+                                                    <span className="text-rose-500 font-bold text-xs uppercase">Sự cố</span>
+                                                )}
+                                            </td>
+                                            <td className="p-6 text-right">
+                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEdit(book)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(book.id)} className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="4" className="p-16 text-center text-slate-400 italic font-medium">
+                                                Kho sách hiện đang trống...
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

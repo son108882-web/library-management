@@ -17,17 +17,14 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!user) return;
       try {
         setLoading(true);
-        const userData = JSON.parse(localStorage.getItem("user"));
-        if (!userData) return;
-
-        // ✅ Lấy ID linh hoạt: thử mọi trường hợp có thể tồn tại
-        const userId = userData.id || userData.user?.id || userData.userId;
-
+        const userId = user.id || user.user?.id || user.userId;
         if (userId) {
-          const res = await axios.get(`${API_HISTORY}?user_id=${userId}`);
-          // ✅ Kiểm tra chắc chắn là mảng mới set
+          const res = await axios.get(`${API_HISTORY}`, {
+            params: { user_id: userId } 
+          });
           setHistory(Array.isArray(res.data) ? res.data : []);
         }
       } catch (err) {
@@ -36,95 +33,120 @@ const ProfilePage = () => {
         setLoading(false);
       }
     };
-
     fetchHistory();
-  }, []);
+  }, [user]);
 
-  if (!user) return <div style={{ padding: 50, textAlign: 'center' }}>⚠️ Bạn chưa đăng nhập!</div>;
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#121212]">
+        <div className="p-8 bg-[#1e1e1e] rounded-xl border border-gray-800">
+          <p className="text-xl font-semibold text-red-500 text-center">⚠️ Bạn chưa đăng nhập!</p>
+        </div>
+      </div>
+    );
+  }
 
-  // ✅ FIX: Lấy tên và email linh hoạt (tránh bị undefined)
   const userName = user.name || user.username || user.full_name || "Thành viên";
   const userEmail = user.email || "Chưa có email";
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>👤 Thông tin cá nhân</h2>
-
-      <div style={styles.profileCard}>
-        <div style={styles.avatar}>
-          {userName.charAt(0).toUpperCase()}
+    <div className="min-h-screen bg-[#0f1113] text-gray-200 py-10 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* Profile Card */}
+        <div className="bg-[#1a1d21] rounded-3xl p-8 mb-10 flex flex-col md:flex-row items-center gap-8 border border-gray-800/50 shadow-2xl">
+          <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-5xl font-black shadow-lg transform hover:rotate-3 transition-transform">
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <div className="text-center md:text-left flex-1">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">{userName}</h2>
+            <p className="text-gray-400 text-lg mt-1">{userEmail}</p>
+            <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+              <span className="px-4 py-1.5 bg-indigo-500/10 text-indigo-400 text-xs font-bold rounded-full border border-indigo-500/20 uppercase tracking-wider">
+                Thành viên
+              </span>
+              <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase tracking-wider">
+                Đã xác minh
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <p style={{ margin: "5px 0" }}><strong>Tên:</strong> {userName}</p>
-          <p style={{ margin: "5px 0" }}><strong>Email:</strong> {userEmail}</p>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+            <span className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </span>
+            Lịch sử mượn sách
+          </h3>
+          <span className="text-gray-500 text-sm font-medium">{history.length} bản ghi</span>
         </div>
-      </div>
 
-      <h3 style={styles.subtitle}>📚 Lịch sử mượn sách</h3>
-
-      <div style={styles.tableWrapper}>
-        {loading ? (
-          <p style={{ textAlign: 'center', padding: '20px' }}>Đang tải lịch sử...</p>
-        ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Tên sách</th>
-                <th style={styles.th}>Ngày mượn</th>
-                <th style={styles.th}>Hạn trả</th>
-                <th style={styles.th}>Ngày trả</th>
-                <th style={styles.th}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.length > 0 ? (
-                history.map((item) => (
-                  <tr key={item.id}>
-                    {/* ✅ Lấy tên sách linh hoạt */}
-                    <td style={styles.td}>
-                      {item.book_title || item.title || item.bookTitle || "N/A"}
-                    </td>
-
-                    {/* Ngày mượn */}
-                    <td style={styles.td}>
-                      {isPending(item.status) ? "---" : formatDate(item.borrow_date || item.borrowDate)}
-                    </td>
-
-                    {/* Hạn trả */}
-                    <td style={styles.td}>
-                      {isPending(item.status) ? "---" : formatDate(item.due_date || item.dueDate)}
-                    </td>
-
-                    {/* Ngày trả thực tế */}
-                    <td style={styles.td}>
-                      {(item.return_date || item.returnDate) 
-                        ? formatDate(item.return_date || item.returnDate) 
-                        : "---"}
-                    </td>
-
-                    {/* Trạng thái */}
-                    <td style={styles.td}>
-                      <span style={getStatusStyle(item)}>
-                        {getStatusText(item)}
-                      </span>
-                    </td>
+        {/* Bảng lịch sử */}
+        <div className="bg-[#1a1d21] rounded-2xl shadow-2xl border border-gray-800/50 overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col justify-center items-center p-24 space-y-4">
+              <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-gray-400 font-medium">Đang tải dữ liệu...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#23272d] border-b border-gray-800">
+                    <th className="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-[0.1em]">Tên sách</th>
+                    <th className="px-6 py-5 text-xs font-black text-gray-400 uppercase tracking-[0.1em] text-center">Ngày mượn</th>
+                    <th className="px-6 py-5 text-xs font-black text-gray-400 uppercase tracking-[0.1em] text-center">Ngày trả</th>
+                    <th className="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-[0.1em] text-right">Trạng thái</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" style={styles.empty}>Bạn chưa có lịch sử mượn sách nào.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+                </thead>
+                <tbody className="divide-y divide-gray-800/50">
+                  {history.length > 0 ? (
+                    history.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-800/30 transition-all duration-200 group">
+                        <td className="px-8 py-5">
+                          <div className="font-bold text-gray-100 group-hover:text-indigo-400 transition-colors uppercase text-sm">
+                            {item.book_title || item.title || item.bookTitle || "Chưa rõ tên"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-center text-gray-400 tabular-nums">
+                          {isPending(item.status) ? "---" : formatDate(item.borrow_date || item.borrowDate)}
+                        </td>
+                        <td className="px-6 py-5 text-center text-gray-400 tabular-nums">
+                          {(item.return_date || item.returnDate) 
+                            ? formatDate(item.return_date || item.returnDate) 
+                            : <span className="text-gray-600 italic">Chưa trả</span>}
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          <span className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${getStatusTailwind(item)}`}>
+                            {getStatusText(item)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="px-8 py-24 text-center">
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="text-gray-700 text-6xl mb-2 font-bold opacity-20 uppercase tracking-tighter">Trống</div>
+                          <p className="text-gray-500 font-medium">Bạn chưa thực hiện bất kỳ giao dịch mượn sách nào.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-// --- CÁC HÀM HELPER GIỮ NGUYÊN LOGIC CỦA BẠN ---
+// --- HELPER FUNCTIONS ---
 const isPending = (status) => status === "pending" || status === "chờ duyệt";
 
 const isOverdue = (item) => {
@@ -135,38 +157,25 @@ const isOverdue = (item) => {
 
 const getStatusText = (item) => {
   const status = item.status?.toLowerCase();
-  if (status === "pending") return "Chờ duyệt";
-  if (isOverdue(item)) return "Quá hạn";
-  if (status === "approved" || status === "borrowed") return "Đang mượn";
-  if (status === "returned") return "Đã trả";
-  return item.status || "N/A";
+  if (status === "pending" || status === "chờ duyệt") return "CHỜ DUYỆT";
+  if (isOverdue(item)) return "QUÁ HẠN";
+  if (status === "approved" || status === "borrowed" || status === "đang mượn") return "ĐANG MƯỢN";
+  if (status === "returned" || status === "đã trả") return "ĐÃ TRẢ";
+  return item.status?.toUpperCase() || "KHÔNG RÕ";
 };
 
-const getStatusStyle = (item) => {
+const getStatusTailwind = (item) => {
   const status = item.status?.toLowerCase();
-  if (status === "returned") return { color: "#2ecc71", fontWeight: "bold" };
-  if (isOverdue(item)) return { color: "#e74c3c", fontWeight: "bold" };
-  if (status === "approved" || status === "borrowed") return { color: "#3498db", fontWeight: "bold" };
-  return { color: "#f39c12", fontWeight: "bold" };
+  if (status === "returned" || status === "đã trả") return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+  if (isOverdue(item)) return "bg-rose-500/10 text-rose-500 border-rose-500/20";
+  if (status === "approved" || status === "borrowed" || status === "đang mượn") return "bg-sky-500/10 text-sky-500 border-sky-500/20";
+  return "bg-amber-500/10 text-amber-500 border-amber-500/20";
 };
 
 const formatDate = (date) => {
   if (!date) return "";
   const d = new Date(date);
   return isNaN(d) ? "" : d.toLocaleDateString("vi-VN");
-};
-
-const styles = {
-  container: { padding: "40px", background: "#f4f6f9", minHeight: "100vh" },
-  title: { marginBottom: "15px", fontSize: "24px", color: "#2c3e50" },
-  profileCard: { display: "flex", alignItems: "center", gap: "20px", background: "white", padding: "20px", borderRadius: "12px", marginBottom: "30px", boxShadow: "0 4px 10px rgba(0,0,0,0.05)" },
-  avatar: { width: "70px", height: "70px", borderRadius: "50%", background: "#4b6cb7", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "28px", fontWeight: "bold" },
-  subtitle: { marginBottom: "15px", fontSize: "20px", color: "#2c3e50" },
-  tableWrapper: { background: "white", borderRadius: "12px", padding: "15px", boxShadow: "0 4px 10px rgba(0,0,0,0.05)", overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", minWidth: "600px" },
-  th: { padding: "12px", background: "#f8f9fa", textAlign: "center", fontWeight: "bold", borderBottom: "2px solid #eee" },
-  td: { padding: "15px", borderBottom: "1px solid #eee", textAlign: "center", color: "#444" },
-  empty: { padding: "40px", textAlign: "center", color: "#999", fontSize: "16px" }
 };
 
 export default ProfilePage;
