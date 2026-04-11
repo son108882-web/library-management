@@ -38,7 +38,7 @@ function NavigationWrapper() {
         <Route path="/borrow/:bookId" element={<BorrowPage />} />
         <Route path="/borrow-success" element={<BorrowSuccessPage />} />
         <Route path="/admin/categories" element={<CategoryManagement />} />
-        <Route path="/profile" element={<ProfilePage />} /> {/* ✅ THÊM ROUTE CHO PROFILE */}
+        <Route path="/profile" element={<ProfilePage />} /> 
       </Routes>
       
       {!isAdminPage && <Footer />}

@@ -121,13 +121,23 @@ const AdminHistory = () => {
                   </tr>
                 ) : (
                   filteredData.map((row) => {
+                    // --- LOGIC KIỂM TRA TRẠNG THÁI CHÍNH XÁC ---
                     const isReturned = row.status === 'returned';
+                    
+                    // 1. Lấy mốc thời gian hiện tại (00:00:00)
                     const today = new Date();
-                    const dueDate = row.returnDate ? new Date(row.returnDate) : null;
                     today.setHours(0, 0, 0, 0);
-                    if (dueDate) dueDate.setHours(0, 0, 0, 0);
+                    const todayTime = today.getTime();
 
-                    const isOverdue = !isReturned && dueDate && today > dueDate;
+                    // 2. Lấy mốc thời gian hạn trả (00:00:00)
+                    // Hỗ trợ cả returnDate và return_date
+                    const rawReturnDate = row.returnDate || row.return_date;
+                    const dueDate = rawReturnDate ? new Date(rawReturnDate) : null;
+                    if (dueDate) dueDate.setHours(0, 0, 0, 0);
+                    const dueTime = dueDate ? dueDate.getTime() : 0;
+
+                    // 3. Quá hạn khi: Chưa trả VÀ hôm nay >= ngày hẹn trả
+                    const isOverdue = !isReturned && dueTime > 0 && todayTime >= dueTime;
 
                     return (
                       <tr key={row.id} className="hover:bg-indigo-50/30 transition-all group">
@@ -152,11 +162,11 @@ const AdminHistory = () => {
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
                               <span>Mượn:</span>
-                              <span>{new Date(row.borrowDate).toLocaleDateString('vi-VN')}</span>
+                              <span>{new Date(row.borrowDate || row.borrow_date).toLocaleDateString('vi-VN')}</span>
                             </div>
                             <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-2 py-1 rounded-lg w-fit border ${isOverdue ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                               <span>Hạn trả:</span>
-                              <span>{row.returnDate ? new Date(row.returnDate).toLocaleDateString('vi-VN') : "---"}</span>
+                              <span>{rawReturnDate ? new Date(rawReturnDate).toLocaleDateString('vi-VN') : "---"}</span>
                             </div>
                           </div>
                         </td>
