@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 // --- IMPORT SWIPER ---
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Pagination } from 'swiper/modules'; // Thay Navigation bằng Autoplay
+import { Autoplay, Pagination } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
