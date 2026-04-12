@@ -51,15 +51,15 @@ const HomePage = () => {
     return matchesCategory && matchesSearch;
   });
 
-  // 3. XỬ LÝ MƯỢN SÁCH (Đã fix lỗi nhận diện Token)
+  // 3. XỬ LÝ MƯỢN SÁCH (Đã đồng bộ với key "user" từ LoginPage)
   const handleBorrowClick = (book, e) => {
     e?.preventDefault();
     e?.stopPropagation();
 
-    // Kiểm tra trực tiếp localStorage khi click để lấy data mới nhất
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    // Lấy thông tin user từ localStorage (khớp với file Login của bạn)
+    const userSession = localStorage.getItem("user");
 
-    if (!token) {
+    if (!userSession || userSession === 'undefined' || userSession === 'null') {
       alert("⚠️ Bạn cần đăng nhập để thực hiện chức năng này!");
       navigate("/login");
       return;
@@ -70,6 +70,7 @@ const HomePage = () => {
       return;
     }
 
+    // Chuyển hướng sang trang mượn
     navigate(`/borrow/${book.id}`);
   };
 
